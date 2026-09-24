@@ -20,6 +20,7 @@ from flyvision_adapter.data.video import iter_gray_frames, list_videos
 from flyvision_adapter.detectors.base import Clip, make_hex_input
 from flyvision_adapter.detectors.hexdet import HexEMD, ReceptorDiff
 from flyvision_adapter.detectors.pixel import MOG2, FrameDiff
+from flyvision_adapter.detectors.small_target import FrameDiffST, SmallTarget
 from flyvision_adapter.eval.metrics import frame_table, summarize
 from flyvision_adapter.eye.render import HexRenderer
 from flyvision_adapter.eye.tiling import EyeTiling
@@ -55,16 +56,22 @@ def main() -> None:
     ap.add_argument("--videos", nargs="*", help="e.g. dataset3/cam1 (default: all)")
     ap.add_argument("--kernel-size", type=int, default=13)
     ap.add_argument("--no-flyvis", action="store_true")
+    ap.add_argument("--no-small-target", dest="small_target", action="store_false")
+    ap.add_argument("--only", nargs="*", help="detector names to run (default: all)")
     args = ap.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "config.json").write_text(json.dumps(vars(args), indent=2))
 
-    detectors = [FrameDiff(), MOG2(), ReceptorDiff(), HexEMD()]
+    hex_dets = [ReceptorDiff(), HexEMD()]
     if not args.no_flyvis:
         from flyvision_adapter.detectors.flyvis_motion import FlyvisMotion
-        detectors.append(FlyvisMotion())
+        hex_dets.append(FlyvisMotion())
+    detectors = ([FrameDiff(), FrameDiffST(), MOG2()] + hex_dets
+                 + ([SmallTarget(d) for d in hex_dets] if args.small_target else []))
+    if args.only:
+        detectors = [d for d in detectors if d.name in args.only]
 
     videos = [v for v in list_videos(ROOT) if not args.videos or v.key in args.videos]
     renderers: dict[tuple[int, int], HexRenderer] = {}

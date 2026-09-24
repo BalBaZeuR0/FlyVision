@@ -10,6 +10,7 @@ torch = pytest.importorskip("torch")
 from flyvision_adapter.detectors.base import Clip, HexInput  # noqa: E402
 from flyvision_adapter.detectors.hexdet import HexEMD, ReceptorDiff  # noqa: E402
 from flyvision_adapter.detectors.pixel import MOG2, FrameDiff  # noqa: E402
+from flyvision_adapter.detectors.small_target import FrameDiffST, SmallTarget  # noqa: E402
 from flyvision_adapter.eval.metrics import WARMUP, frame_table  # noqa: E402
 from flyvision_adapter.eye.temporal import last_step_of_frame, sim_frame_indices  # noqa: E402
 from flyvision_adapter.eye.tiling import EyeTiling  # noqa: E402
@@ -38,16 +39,27 @@ def fake_hex_input(clip: Clip) -> HexInput:
     return HexInput(tiling, torch.as_tensor(per_frame[:, idx]), last_step_of_frame(T, FPS), 0.0)
 
 
-@pytest.mark.parametrize("det", [FrameDiff(), MOG2(history=20)])
+@pytest.mark.parametrize("det", [FrameDiff(), MOG2(history=20), FrameDiffST()])
 def test_pixel_detectors_find_dot(det):
     clip = moving_dot_clip()
     df = frame_table(clip, det(clip), det.name)
     assert (df.err <= 25).mean() > 0.9
 
 
-@pytest.mark.parametrize("det", [ReceptorDiff(), HexEMD()])
+@pytest.mark.parametrize("det", [ReceptorDiff(), HexEMD(), SmallTarget(HexEMD())])
 def test_hex_detectors_find_dot(det):
     clip = moving_dot_clip()
     df = frame_table(clip, det(clip, fake_hex_input(clip)), det.name)
     assert len(df) == T - WARMUP
     assert (df.err <= 25).mean() > 0.9
+
+
+def test_small_target_keeps_dot_next_to_wide_field_band():
+    """A dot plus a large moving bright band: the centre-surround stage must not lose the dot.
+    (Whether it beats plain detectors on real clouds is a benchmark question, not a unit test.)"""
+    clip = moving_dot_clip()
+    for i in range(T):
+        x0 = 20 + 3 * i
+        clip.frames[i, 250:390, x0:x0 + 200] += 0.3  # wide-field 'cloud' below the dot
+    df = frame_table(clip, SmallTarget(HexEMD())(clip, fake_hex_input(clip)), "emd+st")
+    assert (df.err <= 25).mean() > 0.8

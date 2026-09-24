@@ -25,3 +25,12 @@ def test_centre_has_six_distinct_neighbours_rim_pads_self():
     centre = int(np.flatnonzero((axial_coords(15) == 0).all(1))[0])
     assert len(set(ring[centre])) == 7
     assert (ring == np.arange(721)[:, None]).any(1).all()
+
+
+def test_annulus_rings_2_to_4():
+    from flyvision_adapter.eye.lattice import annulus_neighbours
+
+    idx, mask = annulus_neighbours(15, 2, 4)
+    centre = int(np.flatnonzero((axial_coords(15) == 0).all(1))[0])
+    assert mask[centre].sum() == 6 * (2 + 3 + 4)
+    assert mask.sum(1).min() > 0  # even the rim has some surround

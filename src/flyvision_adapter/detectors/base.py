@@ -9,7 +9,7 @@ All are causal: the output for frame i only uses frames <= i.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import torch
@@ -34,6 +34,8 @@ class HexInput:
     stim: torch.Tensor  # (tiles, steps, 721) receptor luminance, on the GPU
     last_step: np.ndarray  # (T,) simulation step read out for each frame
     render_ms: float  # total time to produce `stim`, charged to every hex detector
+    # detector name -> (per-frame score, ms): lets a wrapper reuse its inner detector's work
+    cache: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -85,8 +87,13 @@ class HexDetector:
     def score(self, inp: HexInput) -> torch.Tensor:  # (T, tiles, 721)
         raise NotImplementedError
 
+    def cached_score(self, inp: HexInput) -> tuple[torch.Tensor, float]:
+        if self.name not in inp.cache:
+            inp.cache[self.name] = timed(lambda: self.score(inp))
+        return inp.cache[self.name]
+
     def __call__(self, clip: Clip, inp: HexInput) -> Detections:
-        score, ms = timed(lambda: self.score(inp))
+        score, ms = self.cached_score(inp)
         xy, peak = hex_readout(score, inp.tiling)
         return Detections(xy, peak, (ms + inp.render_ms) / len(clip.frames))
 
