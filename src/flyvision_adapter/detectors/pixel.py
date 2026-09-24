@@ -12,8 +12,8 @@ from .base import Clip, Detections
 BLUR_SIGMA = 3.0  # px; pools a few-pixel drone into one peak, same for every pixel baseline
 
 
-def _peak(score: np.ndarray) -> tuple[np.ndarray, float]:
-    score = cv2.GaussianBlur(score, (0, 0), BLUR_SIGMA)
+def _peak(score: np.ndarray, sigma: float = BLUR_SIGMA) -> tuple[np.ndarray, float]:
+    score = cv2.GaussianBlur(score, (0, 0), sigma)
     y, x = np.unravel_index(int(np.argmax(score)), score.shape)
     return np.array([x, y], dtype=np.float64), float(score[y, x])
 
@@ -23,12 +23,15 @@ class FrameDiff:
 
     name = "framediff"
 
+    def __init__(self, blur: float = BLUR_SIGMA):
+        self.blur = blur
+
     def __call__(self, clip: Clip, _inp=None) -> Detections:
         xy, peak = np.zeros((len(clip.frames), 2)), np.zeros(len(clip.frames))
         t0 = time.perf_counter()
         prev = clip.frames[0]
         for i, f in enumerate(clip.frames):
-            xy[i], peak[i] = _peak(np.abs(f - prev))
+            xy[i], peak[i] = _peak(np.abs(f - prev), self.blur)
             prev = f
         ms = 1000 * (time.perf_counter() - t0) / len(clip.frames)
         return Detections(xy, peak, ms)

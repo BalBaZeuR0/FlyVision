@@ -64,6 +64,10 @@ class FrameDiffST(FrameDiff):
 
     name = "framediff+st"
 
+    def __init__(self, blur: float = BLUR_SIGMA, surround: float = SURROUND_SIGMA):
+        super().__init__(blur)
+        self.surround = surround
+
     def __call__(self, clip: Clip, _inp=None) -> Detections:
         xy, peak = np.zeros((len(clip.frames), 2)), np.zeros(len(clip.frames))
         t0 = time.perf_counter()
@@ -71,8 +75,8 @@ class FrameDiffST(FrameDiff):
         for i, f in enumerate(clip.frames):
             d = np.abs(f - prev)
             prev = f
-            dog = np.maximum(cv2.GaussianBlur(d, (0, 0), BLUR_SIGMA)
-                             - cv2.GaussianBlur(d, (0, 0), SURROUND_SIGMA), 0)
+            dog = np.maximum(cv2.GaussianBlur(d, (0, 0), self.blur)
+                             - cv2.GaussianBlur(d, (0, 0), self.surround), 0)
             y, x = np.unravel_index(int(np.argmax(dog)), dog.shape)
             xy[i], peak[i] = (x, y), dog[y, x]
         ms = 1000 * (time.perf_counter() - t0) / len(clip.frames)

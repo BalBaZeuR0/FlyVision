@@ -63,3 +63,21 @@ def test_small_target_keeps_dot_next_to_wide_field_band():
         clip.frames[i, 250:390, x0:x0 + 200] += 0.3  # wide-field 'cloud' below the dot
     df = frame_table(clip, SmallTarget(HexEMD())(clip, fake_hex_input(clip)), "emd+st")
     assert (df.err <= 25).mean() > 0.8
+
+
+def test_registry_builds_tuned_specs():
+    from flyvision_adapter.detectors.registry import build
+
+    specs = {
+        "a": ("framediff", {"blur": 1.5, "st": False}),
+        "b": ("framediff", {"blur": 3.0, "surround": 20.0, "st": True}),
+        "c": ("mog2", {"history": 50, "var_threshold": 8.0}),
+        "d": ("emd", {"tau_hp": 0.1, "tau_delay": 0.02, "lag": 1, "st": True}),
+        "e": ("receptor_diff", {"st": False}),
+    }
+    clip = moving_dot_clip()
+    inp = fake_hex_input(clip)
+    for name, (fam, params) in specs.items():
+        det = build(name, fam, params)
+        assert det.name == name
+        det(clip, inp)

@@ -29,10 +29,14 @@ class HexEMD(HexDetector):
 
     name = "emd"
 
-    def __init__(self, tau_hp: float = 0.25, tau_delay: float = 0.05):
-        self.tau_hp, self.tau_delay = tau_hp, tau_delay
+    def __init__(self, tau_hp: float = 0.25, tau_delay: float = 0.05, lag: int = 6):
+        self.tau_hp, self.tau_delay, self.lag = tau_hp, tau_delay, lag
 
     def score(self, inp: HexInput) -> torch.Tensor:
+        return lag_max(self.energy(inp), inp.last_step, self.lag)
+
+    def energy(self, inp: HexInput) -> torch.Tensor:
+        """(tiles, steps, 721) motion energy at every simulation step."""
         x = inp.stim
         x = x - lowpass(x, self.tau_hp)
         ring = torch.as_tensor(ring_neighbours(inp.tiling.extent), device=x.device)
@@ -42,4 +46,4 @@ class HexEMD(HexDetector):
         for nb in torch.as_tensor(axis_neighbours(inp.tiling.extent), device=x.device):
             r = d * c[..., nb] - c * d[..., nb]
             energy += r * r
-        return lag_max(energy.sqrt(), inp.last_step, self.lag)
+        return energy.sqrt()
