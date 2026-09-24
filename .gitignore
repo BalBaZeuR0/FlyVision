@@ -6,5 +6,5 @@ __pycache__/
 .env
 
 # drone videos (~17GB) live only on noron, re-downloadable from CenekAlbl/drone-tracking-datasets
-data/
-outputs/
+/data/
+/outputs/
