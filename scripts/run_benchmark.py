@@ -68,11 +68,16 @@ def main() -> None:
 
     videos = [v for v in list_videos(ROOT) if not args.videos or v.key in args.videos]
     renderers: dict[tuple[int, int], HexRenderer] = {}
-    tables = []
+    # every finished clip is appended here, so a crash loses at most one clip and a rerun resumes
+    partial = out / "frames_partial.csv"
+    tables = [pd.read_csv(partial)] if partial.exists() else []
+    done = set(tables[0]["clip"]) if tables else set()
     t_all = time.perf_counter()
     for v in videos:
         lab = load_labels(v.labels_path)
         for start in sample_clips(lab, v.n_frames, args.clip_frames, args.clips_per_video):
+            if f"{v.key}@{start}" in done:
+                continue
             clip = load_clip(v, lab, start, args.clip_frames)
             size = clip.frames.shape[1:]
             if size not in renderers:
@@ -83,6 +88,7 @@ def main() -> None:
             del inp
             torch.cuda.empty_cache()
             last = pd.concat(tables[-len(detectors):])
+            last.to_csv(partial, mode="a", header=not partial.exists(), index=False)
             hits = last[last.visible].groupby("detector").err.apply(lambda e: (e <= 25).mean())
             print(f"[{time.perf_counter() - t_all:7.0f}s] {clip.key:24s} hit@25 "
                   + " ".join(f"{k}={hits.get(k, float('nan')):.2f}" for k in hits.index),

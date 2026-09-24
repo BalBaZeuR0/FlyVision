@@ -2,6 +2,7 @@
 
 Each row is `frame_no x y` with 1-based frame numbers; `0 0` means the drone was not labelled
 (out of view / occluded). Some files start with a ` frame no.  x  y` header line, some don't.
+A frame listed twice (dataset3/cam2 frame 12770: once labelled, once `0 0`) keeps the labelled row.
 """
 
 from __future__ import annotations
@@ -30,4 +31,5 @@ def load_labels(path: str | Path) -> pd.DataFrame:
         "y": arr[:, 2],
     })
     df["visible"] = ~((df.x == 0) & (df.y == 0))
-    return df
+    df = df.sort_values(["frame", "visible"], ascending=[True, False], kind="stable")
+    return df.drop_duplicates("frame").reset_index(drop=True)
