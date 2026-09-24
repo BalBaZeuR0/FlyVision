@@ -1,0 +1,23 @@
+[project]
+name = "flyvision-adapter"
+version = "0.1.0"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "opencv-python-headless>=4.9",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+# flyvis pulls torch unpinned; on noron (RTX 5060, Blackwell) install torch from the cu128 index first
+# — see scripts/remote/setup_noron.sh
+bio = ["flyvis"]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
